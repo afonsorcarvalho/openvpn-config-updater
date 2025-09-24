@@ -1,5 +1,2 @@
 # Dependências para o script de atualização de certificados OpenVPN
 PyYAML>=6.0          # Para leitura do arquivo config.yml
-ftplib2>=0.3.1       # Cliente FTP mais robusto (opcional, usa ftplib padrão se não disponível)
-cryptography>=3.4.8  # Para verificação de integridade de certificados
-psutil>=5.8.0        # Para gerenciamento de processos (reiniciar OpenVPN)

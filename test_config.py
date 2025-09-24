@@ -108,7 +108,10 @@ def test_dependencies():
         ('ftplib', 'ftplib (built-in)'),
         ('hashlib', 'hashlib (built-in)'),
         ('logging', 'logging (built-in)'),
-        ('pathlib', 'pathlib (built-in)')
+        ('pathlib', 'pathlib (built-in)'),
+        ('subprocess', 'subprocess (built-in)'),
+        ('socket', 'socket (built-in)'),
+        ('time', 'time (built-in)')
     ]
     
     all_ok = True
