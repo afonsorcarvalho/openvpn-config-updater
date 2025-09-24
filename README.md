@@ -25,6 +25,11 @@ Este script verifica periodicamente se há uma versão mais atual do arquivo `.o
 - Acesso ao servidor FTP remoto
 - Privilégios administrativos para modificar arquivos do OpenVPN
 - Bibliotecas Python listadas em `requirements.txt`
+- **Ambiente Virtual Python** (recomendado para sistemas modernos)
+
+### **Nota sobre Ambientes Gerenciados Externamente**
+
+Sistemas modernos (Ubuntu 22.04+, Debian 12+) usam ambientes Python gerenciados externamente que impedem instalação global de pacotes. O script `install.sh` resolve isso automaticamente criando um ambiente virtual.
 
 ## Instalação
 
@@ -34,9 +39,22 @@ Este script verifica periodicamente se há uma versão mais atual do arquivo `.o
    cd raspberry_update_certificate
    ```
 
-2. **Instale as dependências:**
+2. **Execute o script de instalação:**
    ```bash
-   pip3 install -r requirements.txt
+   sudo ./install.sh
+   ```
+   
+   O script irá automaticamente:
+   - Instalar dependências do sistema (python3-venv, python3-full)
+   - Criar um ambiente virtual Python
+   - Instalar as dependências Python no ambiente virtual
+   - Configurar permissões e diretórios necessários
+   
+   **Ou instale manualmente:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
    ```
 
 3. **Configure o arquivo `config.yml`:**
@@ -46,7 +64,12 @@ Este script verifica periodicamente se há uma versão mais atual do arquivo `.o
 
 4. **Teste a configuração:**
    ```bash
-   python3 openvpn_certificate_updater.py
+   # Usando ambiente virtual
+   source venv/bin/activate
+   python openvpn_certificate_updater.py
+   
+   # Ou usando o caminho direto
+   ./venv/bin/python openvpn_certificate_updater.py
    ```
 
 ## Configuração
@@ -104,11 +127,17 @@ verification:
 
 ### Execução Manual
 ```bash
-# Usando arquivo de configuração padrão (config.yml)
-python3 openvpn_certificate_updater.py
+# Usando o wrapper script (RECOMENDADO)
+sudo ./run_updater.sh
 
-# Especificando arquivo de configuração customizado
-python3 openvpn_certificate_updater.py /caminho/para/config.yml
+# Com arquivo de configuração customizado
+sudo ./run_updater.sh /caminho/para/config.yml
+
+# Testar configuração
+sudo ./run_updater.sh test_config.py
+
+# Execução direta (se preferir)
+sudo ./venv/bin/python openvpn_certificate_updater.py
 ```
 
 ### Execução Automática (Cron)
@@ -120,10 +149,10 @@ Para executar automaticamente, adicione uma entrada no crontab:
 crontab -e
 
 # Adicionar linha para executar a cada 6 horas
-0 */6 * * * /usr/bin/python3 /caminho/para/openvpn_certificate_updater.py
+0 */6 * * * /caminho/para/run_updater.sh
 
 # Ou executar diariamente às 2:00
-0 2 * * * /usr/bin/python3 /caminho/para/openvpn_certificate_updater.py
+0 2 * * * /caminho/para/run_updater.sh
 ```
 
 ### Execução como Serviço Systemd
@@ -141,7 +170,7 @@ crontab -e
 
    [Service]
    Type=oneshot
-   ExecStart=/usr/bin/python3 /caminho/para/openvpn_certificate_updater.py
+   ExecStart=/caminho/para/venv/bin/python /caminho/para/openvpn_certificate_updater.py
    User=root
    WorkingDirectory=/caminho/para/raspberry_update_certificate
 

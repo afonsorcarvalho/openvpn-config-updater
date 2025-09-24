@@ -18,26 +18,48 @@ fi
 if ! command -v python3 &> /dev/null; then
     echo "Python 3 não está instalado. Instalando..."
     apt update
-    apt install -y python3 python3-pip
+    apt install -y python3 python3-pip python3-venv python3-full
 fi
 
-# Verificar se pip está instalado
-if ! command -v pip3 &> /dev/null; then
-    echo "pip3 não está instalado. Instalando..."
-    apt install -y python3-pip
+# Verificar se python3-venv está disponível
+if ! python3 -m venv --help &> /dev/null; then
+    echo "python3-venv não está disponível. Instalando..."
+    apt install -y python3-venv python3-full
 fi
 
 # Obter diretório atual
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Diretório de instalação: $SCRIPT_DIR"
 
-# Instalar dependências Python
-echo "Instalando dependências Python..."
+# Criar e ativar ambiente virtual Python
+echo "Criando ambiente virtual Python..."
 cd "$SCRIPT_DIR"
-pip3 install -r requirements.txt
 
-# Tornar o script executável
+# Verificar se venv já existe
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+    echo "Ambiente virtual criado"
+else
+    echo "Ambiente virtual já existe"
+fi
+
+# Ativar ambiente virtual e instalar dependências
+echo "Ativando ambiente virtual e instalando dependências..."
+source venv/bin/activate
+pip install --upgrade pip
+
+# Verificar se a instalação foi bem-sucedida
+if pip install -r requirements.txt; then
+    echo "✅ Dependências instaladas com sucesso no ambiente virtual"
+else
+    echo "❌ Erro ao instalar dependências"
+    exit 1
+fi
+
+# Tornar os scripts executáveis
 chmod +x openvpn_certificate_updater.py
+chmod +x run_updater.sh
+chmod +x test_config.py
 
 # Criar diretórios necessários
 echo "Criando diretórios necessários..."
@@ -70,7 +92,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 $SCRIPT_DIR/openvpn_certificate_updater.py
+ExecStart=$SCRIPT_DIR/run_updater.sh
 User=root
 WorkingDirectory=$SCRIPT_DIR
 
@@ -110,7 +132,8 @@ fi
 echo "Testando configuração..."
 if [ -f "config.yml" ]; then
     echo "Executando teste de configuração..."
-    if python3 openvpn_certificate_updater.py --help 2>/dev/null || python3 openvpn_certificate_updater.py 2>&1 | head -5; then
+    source venv/bin/activate
+    if python test_config.py; then
         echo "✓ Configuração básica OK"
     else
         echo "⚠ Possíveis problemas na configuração. Verifique o arquivo config.yml"
@@ -124,8 +147,12 @@ echo "=== Instalação Concluída ==="
 echo
 echo "Próximos passos:"
 echo "1. Configure o arquivo config.yml com suas credenciais FTP"
-echo "2. Teste a execução: sudo python3 $SCRIPT_DIR/openvpn_certificate_updater.py"
-echo "3. Verifique os logs: tail -f /var/log/openvpn_certificate_updater.log"
+echo "2. Teste a configuração: sudo $SCRIPT_DIR/run_updater.sh test_config.py"
+echo "3. Execute o updater: sudo $SCRIPT_DIR/run_updater.sh"
+echo "4. Verifique os logs: tail -f /var/log/openvpn_config_updater.log"
+echo
+echo "📝 IMPORTANTE: Use sempre './run_updater.sh' em vez de executar o Python diretamente"
+echo "   O wrapper script ativa automaticamente o ambiente virtual"
 echo
 echo "Documentação completa disponível em README.md"
 echo
