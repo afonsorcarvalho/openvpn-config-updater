@@ -1,0 +1,70 @@
+# Exemplo de configuração para OpenVPN Certificate Updater
+# Copie este arquivo para config.yml e ajuste as configurações conforme necessário
+
+# Configurações do servidor FTP remoto
+ftp:
+  host: "ftp.exemplo.com"          # Substitua pelo endereço do seu servidor FTP
+  port: 21                         # Porta do servidor FTP (padrão: 21)
+  username: "seu_usuario"          # Seu nome de usuário FTP
+  password: "sua_senha"            # Sua senha FTP
+  use_passive: true                # Usar modo passivo (recomendado)
+  timeout: 30                      # Timeout em segundos para conexão
+
+# Configurações dos arquivos OpenVPN
+openvpn:
+  # Caminho remoto no servidor FTP onde está o arquivo .ovpn
+  remote_path: "/certificados/atual"
+  # Nome do arquivo .ovpn remoto
+  remote_filename: "alguma_coisa.ovpn"
+  
+  # Caminho local onde está instalado o OpenVPN
+  local_openvpn_path: "/etc/openvpn"
+  # Nome do arquivo de configuração local (onde será colocado o .ovpn)
+  local_config_filename: "client.conf"
+  
+  # Caminho para backup do arquivo de configuração antigo (opcional)
+  backup_path: "/etc/openvpn/backup"
+
+# Configurações de log
+logging:
+  # Nível de log: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+  # Arquivo de log
+  log_file: "/var/log/openvpn_config_updater.log"
+  # Máximo de linhas no arquivo de log antes de rotacionar
+  max_lines: 1000
+
+# Configurações de verificação
+verification:
+  # Intervalo em horas para verificar por atualizações
+  check_interval_hours: 24
+  # Se deve criar backup antes de substituir a configuração
+  create_backup: true
+  # Se deve reiniciar o serviço OpenVPN após atualização
+  restart_openvpn: true
+  # Nome do serviço OpenVPN (pode variar conforme distribuição)
+  openvpn_service_name: "openvpn@client"
+  
+  # Configurações de rollback automático
+  rollback:
+    # Se deve verificar conectividade após atualização
+    check_connectivity: true
+    # Tempo de espera em segundos para o OpenVPN conectar
+    connection_timeout: 30
+    # Número de tentativas de verificação de conectividade
+    max_connection_attempts: 3
+    # Intervalo entre tentativas em segundos
+    retry_interval: 10
+    # Se deve fazer rollback automático em caso de falha
+    auto_rollback: true
+
+# Exemplos de configurações para diferentes distribuições Linux:
+# 
+# Ubuntu/Debian:
+#   openvpn_service_name: "openvpn"
+# 
+# CentOS/RHEL/Fedora:
+#   openvpn_service_name: "openvpn@client"
+# 
+# Arch Linux:
+#   openvpn_service_name: "openvpn-client@client"
