@@ -101,7 +101,7 @@ class OpenVPNConfigUpdater:
         
         # Validar configurações OpenVPN
         ovpn_config = self.config['openvpn']
-        required_ovpn_keys = ['remote_path', 'remote_filename', 'local_openvpn_path', 'local_config_filename']
+        required_ovpn_keys = ['remote_path', 'local_openvpn_path', 'local_config_filename']
         for key in required_ovpn_keys:
             if key not in ovpn_config:
                 raise ValueError(f"Configuração OpenVPN obrigatória '{key}' não encontrada")
@@ -130,6 +130,86 @@ class OpenVPNConfigUpdater:
         except ftplib.all_errors as e:
             self.logger.error(f"Erro ao conectar ao servidor FTP: {e}")
             raise
+    
+    def _find_latest_ovpn_file(self, ftp: ftplib.FTP, remote_path: str) -> Optional[Dict[str, Any]]:
+        """
+        Encontra o arquivo .ovpn mais recente no diretório remoto
+        
+        Args:
+            ftp (ftplib.FTP): Conexão FTP
+            remote_path (str): Caminho remoto
+            
+        Returns:
+            Optional[Dict[str, Any]]: Informações do arquivo mais recente ou None se não encontrado
+        """
+        try:
+            ftp.cwd(remote_path)
+            files = []
+            ftp.retrlines('LIST', files.append)
+            
+            ovpn_files = []
+            
+            for file_info in files:
+                # Parse da saída do comando LIST
+                parts = file_info.split()
+                if len(parts) >= 9:
+                    filename = parts[-1]
+                    
+                    # Verificar se é um arquivo .ovpn
+                    if filename.lower().endswith('.ovpn'):
+                        try:
+                            # Extrair tamanho e data de modificação
+                            size = int(parts[4])
+                            date_str = ' '.join(parts[5:8])  # Mês, dia, hora/ano
+                            
+                            # Converter data para timestamp para comparação
+                            try:
+                                # Formato típico: "Dec 15 14:30" ou "Dec 15 2023"
+                                if ':' in date_str:
+                                    # Formato com hora
+                                    date_obj = datetime.strptime(date_str, '%b %d %H:%M')
+                                    # Assumir ano atual se não especificado
+                                    if date_obj.year == 1900:
+                                        date_obj = date_obj.replace(year=datetime.now().year)
+                                else:
+                                    # Formato com ano
+                                    date_obj = datetime.strptime(date_str, '%b %d %Y')
+                                
+                                timestamp = date_obj.timestamp()
+                                
+                                ovpn_files.append({
+                                    'size': size,
+                                    'date_str': date_str,
+                                    'filename': filename,
+                                    'timestamp': timestamp
+                                })
+                                
+                                self.logger.debug(f"Arquivo .ovpn encontrado: {filename} ({size} bytes, {date_str})")
+                                
+                            except ValueError as e:
+                                self.logger.warning(f"Erro ao parsear data do arquivo {filename}: {e}")
+                                continue
+                                
+                        except ValueError as e:
+                            self.logger.warning(f"Erro ao parsear informações do arquivo {filename}: {e}")
+                            continue
+            
+            if not ovpn_files:
+                self.logger.warning(f"Nenhum arquivo .ovpn encontrado em {remote_path}")
+                return None
+            
+            # Ordenar por timestamp (mais recente primeiro)
+            ovpn_files.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            latest_file = ovpn_files[0]
+            self.logger.info(f"Arquivo .ovpn mais recente encontrado: {latest_file['filename']} "
+                           f"({latest_file['size']} bytes, {latest_file['date_str']})")
+            
+            return latest_file
+            
+        except ftplib.all_errors as e:
+            self.logger.error(f"Erro ao buscar arquivos .ovpn no diretório remoto: {e}")
+            return None
     
     def _get_remote_file_info(self, ftp: ftplib.FTP, remote_path: str, filename: str) -> Optional[Dict[str, Any]]:
         """
@@ -444,15 +524,11 @@ class OpenVPNConfigUpdater:
             ftp = self._connect_ftp()
             
             try:
-                # Obter informações do arquivo remoto
-                remote_info = self._get_remote_file_info(
-                    ftp, 
-                    ovpn_config['remote_path'], 
-                    ovpn_config['remote_filename']
-                )
+                # Encontrar o arquivo .ovpn mais recente
+                remote_info = self._find_latest_ovpn_file(ftp, ovpn_config['remote_path'])
                 
                 if not remote_info:
-                    self.logger.error("Não foi possível obter informações do arquivo .ovpn remoto")
+                    self.logger.error("Não foi possível encontrar arquivo .ovpn no diretório remoto")
                     return False
                 
                 # Obter informações do arquivo local
@@ -462,14 +538,14 @@ class OpenVPNConfigUpdater:
                 # Se arquivo local não existe, fazer download
                 if not local_info:
                     self.logger.info("Arquivo de configuração local não encontrado, fazendo download...")
-                    return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path)
+                    return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path, remote_info['filename'])
                 
                 # Comparar tamanhos dos arquivos
                 if remote_info['size'] != local_info['size']:
                     self.logger.info(f"Arquivo .ovpn remoto tem tamanho diferente. "
                                    f"Remoto: {remote_info['size']} bytes, "
                                    f"Local: {local_info['size']} bytes")
-                    return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path)
+                    return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path, remote_info['filename'])
                 
                 # Se tamanhos são iguais, verificar hash para ter certeza
                 self.logger.info("Tamanhos são iguais, verificando integridade...")
@@ -477,7 +553,7 @@ class OpenVPNConfigUpdater:
                 # Baixar arquivo temporário para comparação
                 temp_file = f"{local_file_path}.temp"
                 if self._download_ovpn_file(ftp, ovpn_config['remote_path'], 
-                                          ovpn_config['remote_filename'], temp_file):
+                                          remote_info['filename'], temp_file):
                     
                     # Comparar hashes
                     local_hash = self._calculate_file_hash(local_file_path)
@@ -488,7 +564,7 @@ class OpenVPNConfigUpdater:
                     
                     if local_hash != remote_hash:
                         self.logger.info("Hashes diferentes detectados, configuração será atualizada")
-                        return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path)
+                        return self._download_and_install_ovpn(ftp, ovpn_config, local_file_path, remote_info['filename'])
                     else:
                         self.logger.info("Configuração local está atualizada")
                         return True
@@ -503,7 +579,7 @@ class OpenVPNConfigUpdater:
             self.logger.error(f"Erro durante verificação e atualização: {e}")
             return False
     
-    def _download_and_install_ovpn(self, ftp: ftplib.FTP, ovpn_config: Dict[str, Any], local_file_path: str) -> bool:
+    def _download_and_install_ovpn(self, ftp: ftplib.FTP, ovpn_config: Dict[str, Any], local_file_path: str, remote_filename: str) -> bool:
         """
         Baixa e instala o novo arquivo .ovpn como configuração
         
@@ -511,6 +587,7 @@ class OpenVPNConfigUpdater:
             ftp (ftplib.FTP): Conexão FTP
             ovpn_config (Dict[str, Any]): Configurações OpenVPN
             local_file_path (str): Caminho do arquivo local
+            remote_filename (str): Nome do arquivo remoto a ser baixado
             
         Returns:
             bool: True se instalação foi bem-sucedida
@@ -537,7 +614,7 @@ class OpenVPNConfigUpdater:
             # Baixar novo arquivo .ovpn
             temp_file = f"{local_file_path}.new"
             if not self._download_ovpn_file(ftp, ovpn_config['remote_path'], 
-                                          ovpn_config['remote_filename'], temp_file):
+                                          remote_filename, temp_file):
                 return False
             
             # Verificar se o arquivo baixado é válido (não está vazio)

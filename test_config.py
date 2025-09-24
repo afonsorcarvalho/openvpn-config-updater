@@ -49,12 +49,16 @@ def test_config_file(config_file="config.yml"):
         
         # Verificar configurações OpenVPN
         ovpn_config = config['openvpn']
-        required_ovpn_keys = ['remote_path', 'remote_filename', 'local_openvpn_path', 'local_config_filename']
+        required_ovpn_keys = ['remote_path', 'local_openvpn_path', 'local_config_filename']
         for key in required_ovpn_keys:
             if key not in ovpn_config:
                 print(f"❌ ERRO: Configuração OpenVPN '{key}' não encontrada")
                 return False
             print(f"✅ Configuração OpenVPN '{key}': {ovpn_config[key]}")
+        
+        # Verificar se remote_filename foi removido (não é mais necessário)
+        if 'remote_filename' in ovpn_config:
+            print("⚠️  AVISO: 'remote_filename' não é mais necessário - o sistema busca automaticamente o arquivo .ovpn mais recente")
         
         # Verificar diretórios locais
         local_path = ovpn_config['local_openvpn_path']

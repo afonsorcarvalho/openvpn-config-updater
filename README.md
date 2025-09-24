@@ -4,7 +4,7 @@ Script Python para atualização automática de configurações OpenVPN via FTP 
 
 ## Descrição
 
-Este script verifica periodicamente se há uma versão mais atual do arquivo `.ovpn` disponível em um servidor FTP remoto. Se encontrar uma versão mais recente, baixa o arquivo `.ovpn` e o coloca como configuração do OpenVPN (`/etc/openvpn/client.conf`), reiniciando automaticamente o serviço OpenVPN.
+Este script verifica periodicamente se há uma versão mais atual do arquivo `.ovpn` disponível em um servidor FTP remoto. O sistema busca automaticamente o arquivo `.ovpn` mais recente no diretório configurado e, se encontrar uma versão mais nova, baixa e instala como configuração do OpenVPN (`/etc/openvpn/client.conf`), reiniciando automaticamente o serviço OpenVPN.
 
 ## Funcionalidades
 
@@ -12,6 +12,7 @@ Este script verifica periodicamente se há uma versão mais atual do arquivo `.o
 - ✅ Verificação de integridade por tamanho e hash MD5
 - ✅ Backup automático da configuração atual
 - ✅ Reinicialização automática do serviço OpenVPN
+- ✅ **Busca automática do arquivo .ovpn mais recente**
 - ✅ **Verificação de conectividade após atualização**
 - ✅ **Rollback automático em caso de falha**
 - ✅ Sistema de logging configurável
@@ -68,8 +69,7 @@ ftp:
 #### Configurações OpenVPN
 ```yaml
 openvpn:
-  remote_path: "/certificados/atual"     # Caminho remoto no FTP
-  remote_filename: "alguma_coisa.ovpn"   # Nome do arquivo .ovpn remoto
+  remote_path: "/certificados/atual"     # Caminho remoto no FTP (busca automática do .ovpn mais recente)
   local_openvpn_path: "/etc/openvpn"     # Diretório local do OpenVPN
   local_config_filename: "client.conf"   # Nome do arquivo de configuração local
   backup_path: "/etc/openvpn/backup"     # Diretório para backups
@@ -187,6 +187,24 @@ Os logs são gravados tanto no arquivo configurado quanto na saída padrão. Os 
 ### Localização dos Logs
 - Arquivo: `/var/log/openvpn_certificate_updater.log` (configurável)
 - Saída padrão: Console durante execução
+
+## Busca Automática de Arquivos
+
+O sistema busca automaticamente o arquivo `.ovpn` mais recente no diretório remoto:
+
+### **Como Funciona:**
+
+1. **Lista Arquivos**: Conecta ao FTP e lista todos os arquivos no diretório configurado
+2. **Filtra .ovpn**: Identifica apenas arquivos com extensão `.ovpn`
+3. **Ordena por Data**: Ordena os arquivos pela data de modificação (mais recente primeiro)
+4. **Seleciona o Mais Recente**: Escolhe automaticamente o arquivo mais atual
+
+### **Vantagens:**
+
+- ✅ **Flexibilidade**: Não precisa especificar nome do arquivo
+- ✅ **Automatização**: Sempre pega a versão mais recente
+- ✅ **Robustez**: Funciona mesmo se o nome do arquivo mudar
+- ✅ **Simplicidade**: Configuração mais simples
 
 ## Verificação de Integridade
 

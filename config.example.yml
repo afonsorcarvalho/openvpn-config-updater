@@ -12,10 +12,9 @@ ftp:
 
 # Configurações dos arquivos OpenVPN
 openvpn:
-  # Caminho remoto no servidor FTP onde está o arquivo .ovpn
+  # Caminho remoto no servidor FTP onde estão os arquivos .ovpn
   remote_path: "/certificados/atual"
-  # Nome do arquivo .ovpn remoto
-  remote_filename: "alguma_coisa.ovpn"
+  # O script irá automaticamente buscar o arquivo .ovpn mais recente neste diretório
   
   # Caminho local onde está instalado o OpenVPN
   local_openvpn_path: "/etc/openvpn"
